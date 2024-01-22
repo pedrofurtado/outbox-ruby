@@ -1,0 +1,51 @@
+version: '3'
+services:
+  redis:
+    image: redis:7.0-alpine
+    restart: always
+  db:
+    image: postgres:11-alpine
+    restart: always
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_DATABASE=db_outbox
+      - POSTGRES_DB=db_outbox
+      - POSTGRES_PASSWORD=password
+    volumes:
+      - ./initdb.sql:/docker-entrypoint-initdb.d/1-schema.sql
+  web:
+    restart: always
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - .:/app/
+    ports:
+      - 9292:9292
+    environment:
+      POSTGRES_HOST: db
+      POSTGRES_USER: postgres
+      POSTGRES_DATABASE: db_outbox
+      POSTGRES_PASSWORD: password
+    tty: true
+    stdin_open: true
+    depends_on:
+      - db
+      - redis
+    command: /bin/sh -c "bundle exec rackup --host 0.0.0.0"
+  workers:
+    restart: always
+    build:
+      context: .
+      dockerfile: Dockerfile
+    depends_on:
+      - db
+      - redis
+    environment:
+      POSTGRES_HOST: db
+      POSTGRES_USER: postgres
+      POSTGRES_DATABASE: db_outbox
+      POSTGRES_PASSWORD: password
+    volumes:
+      - .:/app/
+    command: /bin/sh -c "bundle exec sidekiq -C sidekiq.yml -r ./app.rb"

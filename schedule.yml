@@ -1,0 +1,3 @@
+outbox_worker:
+  cron: "*/10 * * * * *"
+  class: "OutboxWorker"
